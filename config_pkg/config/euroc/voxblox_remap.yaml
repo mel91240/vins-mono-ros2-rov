@@ -1,0 +1,6 @@
+voxblox_node:
+  ros__parameters:
+    # On force le remapping directement dans la configuration du noeud
+    /**:
+      remappings:
+        pointcloud: /point_cloud2_dense

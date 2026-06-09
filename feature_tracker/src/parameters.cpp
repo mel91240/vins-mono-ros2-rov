@@ -60,7 +60,7 @@ void readParameters(rclcpp::Node::SharedPtr &n)
     EQUALIZE = fsSettings["equalize"];
     FISHEYE = fsSettings["fisheye"];
     if (FISHEYE == 1)
-        FISHEYE_MASK = VINS_FOLDER_PATH + "config/fisheye_mask.jpg";
+        FISHEYE_MASK = "/home/melanie/rov_ws/src/VINS-MONO-ROS2/config_pkg/config/fisheye_mask.jpg";
     CAM_NAMES.push_back(config_file);
 
     WINDOW_SIZE = 20;

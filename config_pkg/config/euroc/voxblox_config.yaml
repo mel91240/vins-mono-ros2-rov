@@ -1,0 +1,17 @@
+voxblox_node:
+  ros__parameters:
+    use_sim_time: false
+    world_frame: "world"
+    sensor_frame: "body"       # Le repère mobile diffusé par notre script
+    use_tf_transforms: true   # ON ACTIVE ENFIN LA TF
+    use_odometry: false        # ON COUPE L'ODOMÉTRIE
+    verbose: true
+    min_ray_length_m: 0.1
+    max_ray_length_m: 25.0
+    tsdf_voxel_size: 0.10
+    tsdf_voxels_per_side: 16
+    voxel_carving_enabled: false # On désactive la suppression pour stabiliser la carte
+    color_mode: "color"
+    publish_tsdf_map: true
+    publish_esdf_map: false
+    update_mesh_every_n_sec: 1.0

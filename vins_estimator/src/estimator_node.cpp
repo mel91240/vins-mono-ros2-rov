@@ -137,21 +137,27 @@ getMeasurements()
 
 void imu_callback(const sensor_msgs::msg::Imu::SharedPtr imu_msg)
 {
-    if ((imu_msg->header.stamp.sec+imu_msg->header.stamp.nanosec * (1e-9)) <= last_imu_t)
+    double t = imu_msg->header.stamp.sec + imu_msg->header.stamp.nanosec * 1e-9;
+    
+    // Detect bag restart
+    if (t < last_imu_t - 1.0)
+    {
+        RCUTILS_LOG_WARN("imu jump back in time! t: %f, last: %f", t, last_imu_t);
+        last_imu_t = t;
+    }
+
+    if (t < last_imu_t)
     {
         RCUTILS_LOG_WARN("imu message in disorder!");
         return;
     }
 
-    last_imu_t = imu_msg->header.stamp.sec+imu_msg->header.stamp.nanosec * (1e-9);
+    last_imu_t = t;
 
     m_buf.lock();
     imu_buf.push(imu_msg);
     m_buf.unlock();
     con.notify_one();
-
-
-    last_imu_t = imu_msg->header.stamp.sec+imu_msg->header.stamp.nanosec * (1e-9);
 
     {
         std::lock_guard<std::mutex> lg(m_state);
@@ -236,15 +242,10 @@ void process()
                     double dt = t - current_time;
                     assert(dt >= 0);
                     current_time = t;
-                    dx = imu_msg->linear_acceleration.x;
-                    dy = imu_msg->linear_acceleration.y;
-                    dz = imu_msg->linear_acceleration.z;
-                    rx = imu_msg->angular_velocity.x;
-                    ry = imu_msg->angular_velocity.y;
-                    rz = imu_msg->angular_velocity.z;
-                    estimator.processIMU(dt, Vector3d(dx, dy, dz), Vector3d(rx, ry, rz));
-                    //printf("imu: dt:%f a: %f %f %f w: %f %f %f\n",dt, dx, dy, dz, rx, ry, rz);
-
+                    estimator.processIMU(dt, Vector3d(imu_msg->linear_acceleration.x, imu_msg->linear_acceleration.y, imu_msg->linear_acceleration.z),
+                                            Vector3d(imu_msg->angular_velocity.x, imu_msg->angular_velocity.y, imu_msg->angular_velocity.z));
+                    //printf("imu: dt:%f a: %f %f %f w: %f %f %f\n",dt, imu_msg->linear_acceleration.x, imu_msg->linear_acceleration.y, imu_msg->linear_acceleration.z,
+                    //                                            imu_msg->angular_velocity.x, imu_msg->angular_velocity.y, imu_msg->angular_velocity.z);
                 }
                 else
                 {
@@ -256,44 +257,15 @@ void process()
                     assert(dt_1 + dt_2 > 0);
                     double w1 = dt_2 / (dt_1 + dt_2);
                     double w2 = dt_1 / (dt_1 + dt_2);
-                    dx = w1 * dx + w2 * imu_msg->linear_acceleration.x;
-                    dy = w1 * dy + w2 * imu_msg->linear_acceleration.y;
-                    dz = w1 * dz + w2 * imu_msg->linear_acceleration.z;
-                    rx = w1 * rx + w2 * imu_msg->angular_velocity.x;
-                    ry = w1 * ry + w2 * imu_msg->angular_velocity.y;
-                    rz = w1 * rz + w2 * imu_msg->angular_velocity.z;
-                    estimator.processIMU(dt_1, Vector3d(dx, dy, dz), Vector3d(rx, ry, rz));
-                    //printf("dimu: dt:%f a: %f %f %f w: %f %f %f\n",dt_1, dx, dy, dz, rx, ry, rz);
+                    Vector3d acc = w1 * Vector3d(imu_msg->linear_acceleration.x, imu_msg->linear_acceleration.y, imu_msg->linear_acceleration.z) +
+                                    w2 * Vector3d(imu_msg->linear_acceleration.x, imu_msg->linear_acceleration.y, imu_msg->linear_acceleration.z);
+                    Vector3d gyr = w1 * Vector3d(imu_msg->angular_velocity.x, imu_msg->angular_velocity.y, imu_msg->angular_velocity.z) +
+                                    w2 * Vector3d(imu_msg->angular_velocity.x, imu_msg->angular_velocity.y, imu_msg->angular_velocity.z);
+                    estimator.processIMU(dt_1, acc, gyr);
+                    //printf("imu: dt:%f a: %f %f %f w: %f %f %f\n",dt_1, acc.x(), acc.y(), acc.z(), gyr.x(), gyr.y(), gyr.z());
                 }
             }
-            // set relocalization frame
-            sensor_msgs::msg::PointCloud::SharedPtr relo_msg = NULL;
-            while (!relo_buf.empty())
-            {
-                relo_msg = relo_buf.front();
-                relo_buf.pop();
-            }
-            if (relo_msg != NULL)
-            {
-                vector<Vector3d> match_points;
-                double frame_stamp = relo_msg->header.stamp.sec+relo_msg->header.stamp.nanosec * (1e-9);
-                for (unsigned int i = 0; i < relo_msg->points.size(); i++)
-                {
-                    Vector3d u_v_id;
-                    u_v_id.x() = relo_msg->points[i].x;
-                    u_v_id.y() = relo_msg->points[i].y;
-                    u_v_id.z() = relo_msg->points[i].z;
-                    match_points.push_back(u_v_id);
-                }
-                Vector3d relo_t(relo_msg->channels[0].values[0], relo_msg->channels[0].values[1], relo_msg->channels[0].values[2]);
-                Quaterniond relo_q(relo_msg->channels[0].values[3], relo_msg->channels[0].values[4], relo_msg->channels[0].values[5], relo_msg->channels[0].values[6]);
-                Matrix3d relo_r = relo_q.toRotationMatrix();
-                int frame_index;
-                frame_index = relo_msg->channels[0].values[7];
-                estimator.setReloFrame(frame_stamp, frame_index, match_points, relo_t, relo_r);
-            }
-
-            RCUTILS_LOG_DEBUG("processing vision data with stamp %f \n", img_msg->header.stamp.sec+img_msg->header.stamp.nanosec * (1e-9));
+            //printf("processing vision data with stamp %f \n", img_msg->header.stamp.toSec());
 
             TicToc t_s;
             map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> image;
@@ -327,8 +299,10 @@ void process()
             pubPointCloud(estimator, header);
             pubTF(estimator, header);
             pubKeyframe(estimator);
-            if (relo_msg != NULL)
+            if (relo_buf.size() != 0)
+            {
                 pubRelocalization(estimator);
+            }
             //RCUTILS_LOG_ERROR("end: %f, at %f", img_msg->header.stamp.toSec(), ros::Time::now().toSec());
         }
         m_estimator.unlock();

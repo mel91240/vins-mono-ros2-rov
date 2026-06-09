@@ -238,7 +238,7 @@ void vio_callback(const nav_msgs::msg::Odometry::ConstPtr pose_msg)
     key_odometrys.type = visualization_msgs::msg::Marker::SPHERE_LIST;
     key_odometrys.action = visualization_msgs::msg::Marker::ADD;
     key_odometrys.pose.orientation.w = 1.0;
-    key_odometrys.lifetime = rclcpp::Duration(0);
+    key_odometrys.lifetime = rclcpp::Duration(0, 0);
 
     //static int key_odometrys_id = 0;
     key_odometrys.id = 0; //key_odometrys_id++;
@@ -485,6 +485,7 @@ int main(int argc, char **argv)
 
     LOOP_CLOSURE = fsSettings["loop_closure"];
     std::string IMAGE_TOPIC;
+    fsSettings["image_topic"] >> IMAGE_TOPIC;
     int LOAD_PREVIOUS_POSE_GRAPH;
     if (LOOP_CLOSURE)
     {
@@ -494,11 +495,11 @@ int main(int argc, char **argv)
         std::string support_path = fsSettings["support_path"];
         n->declare_parameter<std::string>("support_file", "");
         n->get_parameter("support_file", support_path);
-        string vocabulary_file = support_path + "/../support_files/brief_k10L6.bin";
+        string vocabulary_file = "/home/melanie/rov_ws/src/VINS-MONO-ROS2/config_pkg/support_files/brief_k10L6.bin";
         cout << "vocabulary_file: " << vocabulary_file << endl;
         posegraph.loadVocabulary(vocabulary_file);
 
-        BRIEF_PATTERN_FILE = support_path + "/../support_files/brief_pattern.yml";
+        BRIEF_PATTERN_FILE = "/home/melanie/rov_ws/src/VINS-MONO-ROS2/config_pkg/support_files/brief_pattern.yml";
         cout << "BRIEF_PATTERN_FILE" << BRIEF_PATTERN_FILE << endl;
         m_camera = camodocal::CameraFactory::instance()->generateCameraFromYamlFile(config_file.c_str());
 

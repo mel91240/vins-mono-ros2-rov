@@ -5,11 +5,17 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Status1
+        - /feature_tracker1
+        - /vins_estimator1
+        - /vins_estimator1/PointCloud1
         - /vins_estimator1/Path1
         - /pose_graph1/Path1
+        - /benchmark1
         - /benchmark1/Path1
+        - /VoxbloxMesh1
+        - /VoxbloxMesh1/Topic1
       Splitter Ratio: 0.5
-    Tree Height: 285
+    Tree Height: 528
   - Class: rviz_common/Selection
     Name: Selection
   - Class: rviz_common/Tool Properties
@@ -103,9 +109,10 @@ Visualization Manager:
           Topic:
             Depth: 5
             Durability Policy: Volatile
+            Filter size: 10
             History Policy: Keep Last
             Reliability Policy: Reliable
-            Value: /vins_estimator/keyframe_point
+            Value: /point_cloud
           Use Fixed Frame: true
           Use rainbow: true
           Value: true
@@ -132,9 +139,10 @@ Visualization Manager:
           Topic:
             Depth: 5
             Durability Policy: Volatile
+            Filter size: 10
             History Policy: Keep Last
             Reliability Policy: Reliable
-            Value: /vins_estimator/path
+            Value: /path
           Value: true
       Enabled: true
       Name: vins_estimator
@@ -144,7 +152,7 @@ Visualization Manager:
           Enabled: true
           Name: MarkerArray
           Namespaces:
-            CameraPoseVisualization: true
+            {}
           Topic:
             Depth: 5
             Durability Policy: Volatile
@@ -175,6 +183,7 @@ Visualization Manager:
           Topic:
             Depth: 5
             Durability Policy: Volatile
+            Filter size: 10
             History Policy: Keep Last
             Reliability Policy: Reliable
             Value: /pose_graph/pose_graph_path
@@ -183,7 +192,7 @@ Visualization Manager:
           Enabled: true
           Name: MarkerArray
           Namespaces:
-            CameraPoseVisualization: true
+            {}
           Topic:
             Depth: 5
             Durability Policy: Volatile
@@ -192,7 +201,7 @@ Visualization Manager:
             Value: /pose_graph/pose_graph
           Value: true
         - Class: rviz_default_plugins/Image
-          Enabled: true
+          Enabled: false
           Max Value: 1
           Median window: 5
           Min Value: 0
@@ -204,7 +213,7 @@ Visualization Manager:
             History Policy: Keep Last
             Reliability Policy: Reliable
             Value: /pose_graph/match_image
-          Value: true
+          Value: false
       Enabled: true
       Name: pose_graph
     - Class: rviz_common/Group
@@ -232,12 +241,24 @@ Visualization Manager:
           Topic:
             Depth: 5
             Durability Policy: Volatile
+            Filter size: 10
             History Policy: Keep Last
             Reliability Policy: Reliable
             Value: /benchmark_publisher/path
           Value: true
       Enabled: true
       Name: benchmark
+    - Class: voxblox_rviz_plugin/VoxbloxMesh
+      Enabled: true
+      Name: VoxbloxMesh
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: ""
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -253,6 +274,9 @@ Visualization Manager:
     - Class: rviz_default_plugins/Measure
       Line color: 128; 128; 0
     - Class: rviz_default_plugins/SetInitialPose
+      Covariance x: 0.25
+      Covariance y: 0.25
+      Covariance yaw: 0.06853891909122467
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -281,7 +305,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 4.781668663024902
+      Distance: 13.50313663482666
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -296,26 +320,26 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.4653986394405365
+      Pitch: 0.510399341583252
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 2.935408353805542
+      Yaw: 2.9804093837738037
     Saved: ~
 Window Geometry:
   Displays:
     collapsed: false
-  Height: 965
+  Height: 1016
   Hide Left Dock: false
   Hide Right Dock: false
   Image:
     collapsed: false
-  QMainWindow State: 000000ff00000000fd0000000400000000000001560000036bfc020000000afb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000003d000001a8000000c900fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb0000000a0049006d00610067006501000001eb000000ef0000002800fffffffb0000000a0049006d00610067006501000002e0000000c80000002800ffffff000000010000010f0000036bfc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a00560069006500770073010000003d0000036b000000a400fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000004420000003efc0100000002fb0000000800540069006d00650100000000000004420000000000000000fb0000000800540069006d00650100000000000004500000000000000000000004330000036b00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd0000000400000000000001560000039efc020000000afb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000003d0000029b000000c900fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb0000000a0049006d00610067006501000002de000000fd0000002800fffffffb0000000a0049006d0061006700650000000307000000d40000002800ffffff000000010000010f0000039efc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a00560069006500770073010000003d0000039e000000a400fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000004420000003efc0100000002fb0000000800540069006d00650100000000000004420000000000000000fb0000000800540069006d00650100000000000004500000000000000000000004c90000039e00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Selection:
     collapsed: false
   Tool Properties:
     collapsed: false
   Views:
     collapsed: false
-  Width: 1700
-  X: 60
-  Y: 60
+  Width: 1850
+  X: 70
+  Y: 27

@@ -28,36 +28,38 @@ bool init_pub = 0;
 
 void img_callback(const sensor_msgs::msg::Image::SharedPtr img_msg)
 {
-    if(first_image_flag)
+    TicToc t_callback;
+    double t = img_msg->header.stamp.sec + img_msg->header.stamp.nanosec * 1e-9;
+    
+    // Detect bag restart (backward jump)
+    if (t < last_image_time - 1.0 && last_image_time != 0)
     {
-        first_image_flag = false;
-        first_image_time = img_msg->header.stamp.sec+img_msg->header.stamp.nanosec*(1e-9);
-        last_image_time = img_msg->header.stamp.sec+img_msg->header.stamp.nanosec*(1e-9);
-        return;
-    }
-
-    // detect unstable camera stream
-    if (img_msg->header.stamp.sec+img_msg->header.stamp.nanosec*(1e-9) - last_image_time > 1.0 || img_msg->header.stamp.sec+img_msg->header.stamp.nanosec*(1e-9) < last_image_time)
-    {
-        RCUTILS_LOG_WARN("image discontinue! reset the feature tracker!");
-        first_image_flag = true; 
-        last_image_time = 0;
-        pub_count = 1;
+        RCUTILS_LOG_WARN("image jump back in time! resetting... t: %f, last: %f", t, last_image_time);
+        first_image_flag = true;
+        last_image_time = t;
         std_msgs::msg::Bool restart_flag;
         restart_flag.data = true;
         pub_restart->publish(restart_flag);
+    }
+
+    if(first_image_flag)
+    {
+        first_image_flag = false;
+        first_image_time = t;
+        last_image_time = t;
         return;
     }
 
-    last_image_time = img_msg->header.stamp.sec+img_msg->header.stamp.nanosec*(1e-9);
+    last_image_time = t;
+
     // frequency control
-    if (round(1.0 * pub_count / (img_msg->header.stamp.sec+img_msg->header.stamp.nanosec*(1e-9) - first_image_time)) <= FREQ)
+    if (round(1.0 * pub_count / (t - first_image_time)) <= FREQ)
     {
         PUB_THIS_FRAME = true;
         // reset the frequency control
-        if (abs(1.0 * pub_count / (img_msg->header.stamp.sec+img_msg->header.stamp.nanosec*(1e-9) - first_image_time) - FREQ) < 0.01 * FREQ)
+        if (abs(1.0 * pub_count / (t - first_image_time) - FREQ) < 0.01 * FREQ)
         {
-            first_image_time = img_msg->header.stamp.sec+img_msg->header.stamp.nanosec*(1e-9);
+            first_image_time = t;
             pub_count = 0;
         }
     }
@@ -81,14 +83,12 @@ void img_callback(const sensor_msgs::msg::Image::SharedPtr img_msg)
         ptr = cv_bridge::toCvCopy(img_msg, sensor_msgs::image_encodings::MONO8);
 
     cv::Mat show_img = ptr->image;
-    // cv::imshow("img", show_img);
-    // cv::waitKey(0);
     TicToc t_r;
     for (int i = 0; i < NUM_OF_CAM; i++)
     {
         RCUTILS_LOG_DEBUG("processing camera %d", i);
         if (i != 1 || !STEREO_TRACK)
-            trackerData[i].readImage(ptr->image.rowRange(ROW * i, ROW * (i + 1)), img_msg->header.stamp.sec+img_msg->header.stamp.nanosec * (1e-9));
+            trackerData[i].readImage(ptr->image.rowRange(ROW * i, ROW * (i + 1)), t);
         else
         {
             if (EQUALIZE)
@@ -155,59 +155,35 @@ void img_callback(const sensor_msgs::msg::Image::SharedPtr img_msg)
                 }
             }
         }
-
         feature_points->channels.push_back(id_of_point);
         feature_points->channels.push_back(u_of_point);
         feature_points->channels.push_back(v_of_point);
         feature_points->channels.push_back(velocity_x_of_point);
         feature_points->channels.push_back(velocity_y_of_point);
-
-        RCUTILS_LOG_DEBUG("publish %f, at %f", feature_points->header.stamp.sec+feature_points->header.stamp.nanosec * (1e-9), rclcpp::Clock().now().nanoseconds()*(1e-9));
-        // skip the first image; since no optical speed on frist image
-        if (!init_pub)
-        {
-            init_pub = 1;
-        }
-        else
-            pub_img->publish(*feature_points);
+        pub_img->publish(*feature_points);
 
         if (SHOW_TRACK)
         {
-            ptr = cv_bridge::cvtColor(ptr, sensor_msgs::image_encodings::BGR8);
-            //cv::Mat stereo_img(ROW * NUM_OF_CAM, COL, CV_8UC3);
+            ptr = cv_bridge::toCvCopy(img_msg, sensor_msgs::image_encodings::BGR8);
+            //cv::Mat stereo_img(ROW, COL * 2, CV_8UC3);
             cv::Mat stereo_img = ptr->image;
 
             for (int i = 0; i < NUM_OF_CAM; i++)
             {
-                cv::Mat tmp_img = stereo_img.rowRange(i * ROW, (i + 1) * ROW);
-                cv::cvtColor(show_img, tmp_img, CV_GRAY2RGB);
-
+                cv::Mat tmp_img = stereo_img.colRange(i * COL, (i + 1) * COL);
+                cv::cvtColor(trackerData[i].cur_img, tmp_img, cv::COLOR_GRAY2BGR);
                 for (unsigned int j = 0; j < trackerData[i].cur_pts.size(); j++)
                 {
                     double len = std::min(1.0, 1.0 * trackerData[i].track_cnt[j] / WINDOW_SIZE);
                     cv::circle(tmp_img, trackerData[i].cur_pts[j], 2, cv::Scalar(255 * (1 - len), 0, 255 * len), 2);
-                    //draw speed line
-                    /*
-                    Vector2d tmp_cur_un_pts (trackerData[i].cur_un_pts[j].x, trackerData[i].cur_un_pts[j].y);
-                    Vector2d tmp_pts_velocity (trackerData[i].pts_velocity[j].x, trackerData[i].pts_velocity[j].y);
-                    Vector3d tmp_prev_un_pts;
-                    tmp_prev_un_pts.head(2) = tmp_cur_un_pts - 0.10 * tmp_pts_velocity;
-                    tmp_prev_un_pts.z() = 1;
-                    Vector2d tmp_prev_uv;
-                    trackerData[i].m_camera->spaceToPlane(tmp_prev_un_pts, tmp_prev_uv);
-                    cv::line(tmp_img, trackerData[i].cur_pts[j], cv::Point2f(tmp_prev_uv.x(), tmp_prev_uv.y()), cv::Scalar(255 , 0, 0), 1 , 8, 0);
-                    */
                     //char name[10];
                     //sprintf(name, "%d", trackerData[i].ids[j]);
                     //cv::putText(tmp_img, name, trackerData[i].cur_pts[j], cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 0));
                 }
             }
-            //cv::imshow("vis", stereo_img);
-            //cv::waitKey(5);
             pub_match->publish(*(ptr->toImageMsg()));
         }
     }
-    // RCUTILS_LOG_INFO("whole feature tracker processing costs: %fms", t_r.toc());
 }
 
 int main(int argc, char **argv)
@@ -225,6 +201,10 @@ int main(int argc, char **argv)
         for (int i = 0; i < NUM_OF_CAM; i++)
         {
             trackerData[i].fisheye_mask = cv::imread(FISHEYE_MASK, 0);
+            if(trackerData[i].fisheye_mask.data){
+                cv::resize(trackerData[i].fisheye_mask, trackerData[i].fisheye_mask, cv::Size(COL, ROW));
+                std::cout << "[DEBUG MASQUE] Taille masque redimensionne : " << trackerData[i].fisheye_mask.cols << "x" << trackerData[i].fisheye_mask.rows << " (Attendu: " << COL << "x" << ROW << ")" << std::endl;
+            }
             if(!trackerData[i].fisheye_mask.data)
             {
                 RCUTILS_LOG_INFO("load mask fail");
@@ -234,19 +214,12 @@ int main(int argc, char **argv)
         }
     }
 
-    auto sub_img = n->create_subscription<sensor_msgs::msg::Image>(IMAGE_TOPIC, rclcpp::QoS(rclcpp::KeepLast(100)), img_callback);
+    auto sub_img = n->create_subscription<sensor_msgs::msg::Image>(IMAGE_TOPIC, rclcpp::QoS(rclcpp::KeepLast(1)), img_callback);
 
     pub_img = n->create_publisher<sensor_msgs::msg::PointCloud>("feature", 1000);
     pub_match = n->create_publisher<sensor_msgs::msg::Image>("feature_img",1000);
     pub_restart = n->create_publisher<std_msgs::msg::Bool>("restart",1000);
-    /*
-    if (SHOW_TRACK)
-        cv::namedWindow("vis", cv::WINDOW_NORMAL);
-    */
+
     rclcpp::spin(n);
     return 0;
 }
-
-
-// new points velocity is 0, pub or not?
-// track cnt > 1 pub?
